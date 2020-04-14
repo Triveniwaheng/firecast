@@ -1,11 +1,14 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+//import { user } from 'firebase-functions/lib/providers/auth';
 admin.initializeApp()
 
 const db = admin.firestore()
+const timestamp = admin.firestore.Timestamp
 
 const REF_USER: string = 'user'
 const REF_HISTORY: string = 'history'
+
 
 export const createUser = functions.https.onRequest(async (request, response) => {
     const data = request.body
@@ -14,7 +17,7 @@ export const createUser = functions.https.onRequest(async (request, response) =>
         displayName: data.displayName,
         password: data.password,
         licenseNo: data.licenseNo,
-        currentParking: ''        
+        currentParking: null      
     }).then(ref => {
         console.log("User created: " + ref.id)
         return response.status(200).send({'userID': ref.id})
@@ -24,18 +27,72 @@ export const createUser = functions.https.onRequest(async (request, response) =>
     })
 });
 
+export const signIn = functions.https.onRequest(async (request, response) => {
+    const displayName = request.body.displayName
+    const password = request.body.password
+
+    let logInData: any
+    await db.collection(REF_USER).where('displayName', '==', displayName).where('password', '==', password).get().then(logInSnapshot => {
+        if(logInSnapshot.empty) {
+            return response.status(404).send({
+                'status': 404,
+                'message': 'user not found'
+            })
+        }
+        logInSnapshot.forEach(userDetails => {
+            logInData = userDetails
+            return
+        })
+        return
+    })
+    console.log("user found: " +{
+        "userId": logInData.id,
+        "displayName": logInData.get('displayName'),
+        "licenseNo": logInData.get('licenseNo'),
+        "password": logInData.get('password')
+    })
+    return response.status(200).send({
+        'displayName': logInData.get('displayName'),
+        'licenseNo': logInData.get('licenseNo')
+    })
+    
+})
+
 export const vehicleCheckin = functions.https.onRequest(async (request,response) => {
-    const data = request.body.licenseNo
+    const licenseNo = request.body.licenseNo
+
+    console.log("licenseNo: " + licenseNo)
+
+    let userContent: any
+    await db.collection(REF_USER).where('licenseNo', '==', licenseNo).get().then(userSnapshot => {
+        if (userSnapshot.empty) {
+            return response.status(404).send({
+                'status': 404,
+                'message': 'user not found'
+            })
+        }
+        userSnapshot.forEach(userDoc => {
+            userContent = userDoc
+            return
+        })
+        return
+    })
+
+    console.log("user found: " + {
+        "userId": userContent.id,
+        "displayName": userContent.get('displayName'),
+        "licenseNo": userContent.get("licenseNo")
+    })
 
     await db.collection(REF_HISTORY).add({
-        userId: data.userId,
-        licenseNo: data.licenseNo,
-        startTime: data.startTime,
-        endTime: data.endTime,
-        status: '',
-        duration: '',
-        price: '',
-        parkingSlot: ''
+        userId: userContent.id,
+        licenseNo: licenseNo,
+        startTime: timestamp.fromDate(new Date()),
+        endTime: null,
+        status: null,
+        duration: null,
+        price: null,
+        parkingSlot: null
     }).then(ref => {
         console.log("History created: " + ref.id)
         return response.status(200).send({'historyID': ref.id})
