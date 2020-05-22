@@ -171,11 +171,22 @@ export const vehicleCheckIn = functions.https.onRequest(async (request, response
         })
 
         /**
+         * Don't allow check in request if the user is currently in a parking 
+         */
+
+        if (user.get('currentParkingId') != null) {
+            return response.status(401).send({
+                'status': 401,
+                'message': 'Unauthorized to park, user is currently in a parking'
+            })
+        }
+
+        /**
          * Send a notification and notify the user that the vehicle has checked in to a parking 
          */
         const notification = {
             title: 'Vehicle checked in',
-            body: 'Your vehicle ' + licenseNo + ' has entered the parking' + parking.get('title'),
+            body: 'Your vehicle ' + licenseNo + ' has entered the parking ' + parking.get('title'),
         }
 
         await sendNotificationToUser(user, notification)
@@ -229,7 +240,6 @@ export const vehicleCheckIn = functions.https.onRequest(async (request, response
 export const vehicleCheckOut = functions.https.onRequest(async (request, response) => {
     const licenseNo = request.body.licenseNo
     const parkingId = request.body.parking
-    const pricePerMin = 2
 
     try {
 
@@ -266,11 +276,23 @@ export const vehicleCheckOut = functions.https.onRequest(async (request, respons
         })
 
         /**
+         * Don't allow check out request if the user is not currently in a parking 
+         */
+
+        if (user.get('currentParkingId') == null) {
+            return response.status(401).send({
+                'status': 401,
+                'message': 'Unauthorized to checkout, user is not currently in a parking'
+            })
+        }
+
+
+        /**
          * Send a notification and notify the user that the vehicle has checked out from a parking 
          */
         const notification = {
             title: 'Vehicle checked out',
-            body: 'Your vehicle ' + licenseNo + ' has left the parking' + parking.get('title'),
+            body: 'Your vehicle ' + licenseNo + ' has left the parking ' + parking.get('title'),
         }
 
         await sendNotificationToUser(user, notification)
@@ -295,7 +317,9 @@ export const vehicleCheckOut = functions.https.onRequest(async (request, respons
         const startTime = currentParking.get('startTime')
         const endTime = timestamp.fromDate(new Date())
         const durationSec = endTime.seconds - startTime.seconds
-        const totalPrice = (durationSec / 60) * pricePerMin
+        const price = parking.get('price') as number
+        const totalPrice = (durationSec / 60) * price
+        console.log('Price: ', price,  ', Sec: ', durationSec, ', Min: ', (durationSec/60), ', Totoal: ', totalPrice)
 
         /**
          * Update the parking details with newly calculated
