@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+// import { request } from 'http';
 admin.initializeApp()
 
 const db = admin.firestore()
@@ -16,8 +17,8 @@ const REF_PARKING_SLOT: string = 'parkingSlot'
  * {@param password} password of the user
  * {@param licenseNo} user's vehicle license no.
  */
-export const createUser = functions.https.onRequest(async (request, response) => {
-    const data = request.body
+export const createUser = functions.https.onRequest(async (req, response) => {
+    const data = req.body
     const licenseNo = data.licenseNo
 
     try {
@@ -71,9 +72,9 @@ export const createUser = functions.https.onRequest(async (request, response) =>
  * {@param displayName} User's display name
  * {@param password} password of the user
  */
-export const signIn = functions.https.onRequest(async (request, response) => {
-    const displayName = request.body.displayName
-    const password = request.body.password
+export const signIn = functions.https.onRequest(async (req, response) => {
+    const displayName = req.body.displayName
+    const password = req.body.password
 
     try {
 
@@ -130,9 +131,9 @@ export const signIn = functions.https.onRequest(async (request, response) => {
  * {@param licenseNo} license no. of the vehicle
  * {@param parking} ID of the parking 
  */
-export const vehicleCheckIn = functions.https.onRequest(async (request, response) => {
-    const licenseNo = request.body.licenseNo
-    const parkingId = request.body.parking
+export const vehicleCheckIn = functions.https.onRequest(async (req, response) => {
+    const licenseNo = req.body.licenseNo
+    const parkingId = req.body.parking
 
     console.log('License: ', licenseNo, ' parkingId: ', parkingId)
 
@@ -237,9 +238,9 @@ export const vehicleCheckIn = functions.https.onRequest(async (request, response
  * {@param licenseNo} license no. of the vehicle
  * {@param parking} ID of the parking 
  */
-export const vehicleCheckOut = functions.https.onRequest(async (request, response) => {
-    const licenseNo = request.body.licenseNo
-    const parkingId = request.body.parking
+export const vehicleCheckOut = functions.https.onRequest(async (req, response) => {
+    const licenseNo = req.body.licenseNo
+    const parkingId = req.body.parking
 
     try {
 
@@ -319,7 +320,7 @@ export const vehicleCheckOut = functions.https.onRequest(async (request, respons
         const durationSec = endTime.seconds - startTime.seconds
         const price = parking.get('price') as number
         const totalPrice = (durationSec / 60) * price
-        console.log('Price: ', price,  ', Sec: ', durationSec, ', Min: ', (durationSec/60), ', Totoal: ', totalPrice)
+        console.log('Price: ', price, ', Sec: ', durationSec, ', Min: ', (durationSec / 60), ', Totoal: ', totalPrice)
 
         /**
          * Update the parking details with newly calculated
@@ -413,7 +414,7 @@ async function sendNotificationToUser(user, notification) {
             console.error('Failure sending notification to', tokens[index], error);
             // Cleanup the tokens who are not registered anymore.
             if (error.code === 'messaging/invalid-registration-token' || error.code === 'messaging/registration-token-not-registered') {
-                
+
                 /**
                  * Prepare unused token to be removed from the user's document
                  */
@@ -435,7 +436,7 @@ async function sendNotificationToUser(user, notification) {
 /**
  * Return all the available license no. 
  */
-export const getAllLicenseNo = functions.https.onRequest(async (request, response) => {
+export const getAllLicenseNo = functions.https.onRequest(async (req, response) => {
     const allUser = await db.collection(REF_USER).get()
 
     const licenseNo: any[] = []
@@ -450,7 +451,7 @@ export const getAllLicenseNo = functions.https.onRequest(async (request, respons
 /**
  * Reset all the parking slots for all the parking to available
  */
-export const addParkingSlots = functions.https.onRequest(async (request, response) => {
+export const addParkingSlots = functions.https.onRequest(async (req, response) => {
     const parking = await db.collection(REF_PARKING).get()
 
     const promises: any = []
@@ -472,8 +473,8 @@ export const addParkingSlots = functions.https.onRequest(async (request, respons
  * Get full details of a park history
  * {@param historyID} id of the history
  */
-export const getParkingHistoryDetails = functions.https.onRequest(async (request, response) => {
-    const historyID = request.body.historyID
+export const getParkingHistoryDetails = functions.https.onRequest(async (req, response) => {
+    const historyID = req.body.historyID
 
     try {
 
@@ -529,3 +530,85 @@ export const getParkingHistoryDetails = functions.https.onRequest(async (request
         return response.status(400).send(error)
     }
 });
+
+// const axios = require('axios').default;
+// const https = require('https');
+import { request } from 'http';
+
+exports.onUpdateOrder = functions.firestore.document(REF_USER + '/{userId}').onWrite(async (change, context) => {
+    const oldLicenseNo = change.before.get('licenseNo')
+    const newLicenseNo = change.after.get('licenseNo')
+
+    console.log('Old no.: ', oldLicenseNo, ' New no.: ', newLicenseNo)
+    if (oldLicenseNo != newLicenseNo) {
+        console.log('License no. updated')
+
+        try {
+            const allUser = await db.collection(REF_USER).get()
+            const licenseNo: any[] = []
+            allUser.forEach(userDoc => { licenseNo.push(userDoc.get('licenseNo')) })
+            console.log('All license nos.: ', licenseNo)
+
+            // const url = 'https://us-central1-final-year-project-d4c31.cloudfunctions.net/getAllLicenseNo/'
+            // const a = await axios.post(url, {
+            //     firstName: 'Fred',
+            //     lastName: 'Flintstone'
+            // })
+
+            // const a = await https.get(url)
+
+            // const a = await request({
+            // host: 'https://us-central1-final-year-project-d4c31.cloudfunctions.net',
+            // path: '/getAllLicenseNo/',
+            // method: 'GET',
+            // })
+
+            // a.on('finish', () => {
+            //     console.log('Request finished.')
+            // })
+
+
+            const a = await performRequest({
+                host: 'https://us-central1-final-year-project-d4c31.cloudfunctions.net',
+                path: '/getAllLicenseNo/',
+                method: 'GET',
+            })
+
+            console.log('Response: ', a)
+        } catch (error) {
+            console.error('Error: ', error)
+        }
+    }
+});
+
+
+function performRequest(options) {
+    return new Promise((resolve, reject) => {
+        request(
+            options,
+            function (response) {
+                const { statusCode } = response;
+                if (statusCode == undefined || statusCode >= 300) {
+                    reject(
+                        new Error(response.statusMessage)
+                    )
+                }
+                const chunks: any = [];
+                response.on('data', (chunk) => {
+                    chunks.push(chunk);
+                });
+                response.on('end', () => {
+                    const result = Buffer.concat(chunks).toString();
+                    resolve(JSON.parse(result));
+                });
+            }
+        )
+            .end();
+    })
+}
+
+
+export const postTest = functions.https.onRequest((req, response) => {
+    console.log(req.body)
+    return response.send(req.body)
+})
