@@ -389,7 +389,7 @@ async function sendNotificationToUser(user, notification) {
      * If the token is null, just return
      */
     const tokens = user.get('deviceToken') == null || undefined ? null : user.get('deviceToken') as string[]
-    if (tokens == null) {
+    if (tokens == null || tokens.length == 0) {
         return
     }
 
